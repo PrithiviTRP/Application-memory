@@ -1,0 +1,319 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LRU Page Replacement Simulator</title>
+
+<style>
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: Arial, sans-serif;
+    background: #eef2f7;
+    color: #222;
+    padding: 20px;
+}
+
+.container {
+    max-width: 1000px;
+    margin: 30px auto;
+    background: white;
+    padding: 30px;
+    border-radius: 15px;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+}
+
+h1 {
+    text-align: center;
+    color: #193b70;
+    margin-bottom: 10px;
+}
+
+.subtitle {
+    text-align: center;
+    color: #666;
+    margin-bottom: 30px;
+}
+
+.input-section {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 15px;
+}
+
+label {
+    display: block;
+    font-weight: bold;
+    margin-bottom: 8px;
+}
+
+input {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #ccc;
+    border-radius: 7px;
+    font-size: 16px;
+}
+
+button {
+    width: 100%;
+    padding: 13px;
+    margin-top: 20px;
+    background: #193b70;
+    color: white;
+    border: none;
+    border-radius: 7px;
+    font-size: 16px;
+    cursor: pointer;
+}
+
+button:hover {
+    background: #2859a0;
+}
+
+.results {
+    margin-top: 30px;
+    overflow-x: auto;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 550px;
+}
+
+th, td {
+    border: 1px solid #ddd;
+    padding: 12px;
+    text-align: center;
+}
+
+th {
+    background: #193b70;
+    color: white;
+}
+
+.hit {
+    color: #16803c;
+    font-weight: bold;
+}
+
+.fault {
+    color: #d62828;
+    font-weight: bold;
+}
+
+.summary {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 15px;
+    margin-top: 25px;
+}
+
+.card {
+    background: #eef3fb;
+    padding: 20px;
+    text-align: center;
+    border-radius: 10px;
+}
+
+.card h2 {
+    color: #193b70;
+    margin-top: 10px;
+}
+
+.hidden {
+    display: none;
+}
+
+.footer {
+    text-align: center;
+    margin-top: 30px;
+    color: #777;
+}
+
+@media(max-width:600px) {
+    .input-section {
+        grid-template-columns: 1fr;
+    }
+
+    .summary {
+        grid-template-columns: 1fr;
+    }
+
+    .container {
+        padding: 18px;
+    }
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+<h1>LRU Page Replacement</h1>
+
+<p class="subtitle">
+Least Recently Used Memory Management Simulator
+</p>
+
+<div class="input-section">
+
+<div>
+<label>Enter Page Reference String</label>
+<input type="text" id="pages"
+placeholder="Example: 1 2 3 1 4 5 2">
+</div>
+
+<div>
+<label>Number of Frames</label>
+<input type="number" id="frames"
+min="1" max="20" value="3">
+</div>
+
+</div>
+
+<button onclick="simulateLRU()">Run Simulation</button>
+
+<div id="output" class="hidden">
+
+<div class="results">
+<h2>Simulation Results</h2>
+<br>
+
+<table id="resultTable">
+</table>
+</div>
+
+<div class="summary">
+
+<div class="card">
+<p>Total Page Faults</p>
+<h2 id="faults">0</h2>
+</div>
+
+<div class="card">
+<p>Total Page Hits</p>
+<h2 id="hits">0</h2>
+</div>
+
+<div class="card">
+<p>Fault Rate</p>
+<h2 id="rate">0%</h2>
+</div>
+
+</div>
+
+</div>
+
+<div class="footer">
+<p>Operating Systems Mini Project</p>
+<p>LRU Page Replacement Algorithm</p>
+</div>
+
+</div>
+
+<script>
+
+function simulateLRU() {
+
+    let pagesInput = document.getElementById("pages").value.trim();
+    let frameCount = parseInt(document.getElementById("frames").value);
+
+    let pages = pagesInput.split(/[\s,]+/).map(Number);
+
+    if (!pagesInput || pages.some(p => !Number.isInteger(p) || p < 0) ||
+        !Number.isInteger(frameCount) || frameCount < 1 || frameCount > 20) {
+        alert("Enter valid page numbers and frame count (1-20).");
+        return;
+    }
+
+    let frames = [];
+    let lastUsed = {};
+    let pageFaults = 0;
+    let pageHits = 0;
+
+    let table = document.getElementById("resultTable");
+
+    let html = `
+    <tr>
+        <th>Page</th>`;
+
+    for(let i = 0; i < frameCount; i++) {
+        html += `<th>Frame ${i+1}</th>`;
+    }
+
+    html += `<th>Status</th></tr>`;
+
+    pages.forEach((page, index) => {
+
+        let status = "";
+
+        if(frames.includes(page)) {
+
+            pageHits++;
+            status = "HIT";
+            lastUsed[page] = index;
+
+        } else {
+
+            pageFaults++;
+            status = "PAGE FAULT";
+
+            if(frames.length < frameCount) {
+
+                frames.push(page);
+
+            } else {
+
+                let leastRecent = frames[0];
+
+                for(let p of frames) {
+                    if(lastUsed[p] < lastUsed[leastRecent]) {
+                        leastRecent = p;
+                    }
+                }
+
+                let position = frames.indexOf(leastRecent);
+                frames[position] = page;
+            }
+
+            lastUsed[page] = index;
+        }
+
+        html += `<tr>
+        <td>${page}</td>`;
+
+        for(let i = 0; i < frameCount; i++) {
+            html += `<td>${frames[i] !== undefined ? frames[i] : "-"}</td>`;
+        }
+
+        html += `<td class="${status === 'HIT' ? 'hit' : 'fault'}">
+        ${status}</td></tr>`;
+
+    });
+
+    table.innerHTML = html;
+
+    document.getElementById("faults").textContent = pageFaults;
+    document.getElementById("hits").textContent = pageHits;
+
+    let faultRate = (pageFaults / pages.length) * 100;
+
+    document.getElementById("rate").textContent =
+        faultRate.toFixed(2) + "%";
+
+    document.getElementById("output").classList.remove("hidden");
+}
+
+</script>
+
+</body>
+</html>
